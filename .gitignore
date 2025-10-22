@@ -1,0 +1,74 @@
+# ----- OS/Editor -----
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
+*.code-workspace
+
+# ----- Node/JS common -----
+node_modules/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Env files (keep samples)
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# ----- Backend (Node + Prisma) -----
+backend/node_modules/
+backend/dist/
+backend/coverage/
+backend/.env
+backend/.env.*
+!backend/.env.sample
+# Prisma local DB files (if any)
+backend/prisma/*.db
+backend/prisma/*.db-journal
+# Optional: generated ML model artifacts
+backend/models/
+
+# ----- Dashboard (Next.js) -----
+dashboard/node_modules/
+dashboard/.next/
+dashboard/out/
+dashboard/.vercel/
+dashboard/coverage/
+dashboard/.env.local
+dashboard/.env.development.local
+dashboard/.env.production.local
+
+# ----- Firmware (PlatformIO / Arduino) -----
+firmware/.pio/
+firmware/.pioenvs/
+firmware/.piolibdeps/
+firmware/.sconsign.dblite
+# VS Code C++ intellisense caches
+firmware/.vscode/.browse.c_cpp.db*
+firmware/.vscode/c_cpp_properties.json
+firmware/.vscode/launch.json
+
+# ----- Python/ML (general) -----
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# ----- Misc build artifacts -----
+*.cache/
+*.tmp
+.tmp/
