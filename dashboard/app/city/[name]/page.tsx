@@ -3,12 +3,18 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { AQIMap } from '@/components/map/AQIMap';
+import { MapPin, TrendingUp, AlertTriangle, Download, Share2, Clock, RadioTower } from 'lucide-react';
+import dynamic from 'next/dynamic';
+
+// Dynamically import map to avoid SSR issues
+const DynamicMap = dynamic(() => import('@/components/map/AQIMap').then((m) => m.AQIMap), {
+  ssr: false,
+});
+
 import { TimeSeriesChart } from '@/components/charts/TimeSeriesChart';
 import { AQICard } from '@/components/cards/AQICard';
 import { apiClient } from '@/lib/api';
 import { getAQICategory } from '@/lib/aqi-utils';
-import { MapPin, TrendingUp, AlertTriangle, Download, Share2 } from 'lucide-react';
 
 /**
  * Public City View Page
@@ -17,7 +23,7 @@ import { MapPin, TrendingUp, AlertTriangle, Download, Share2 } from 'lucide-reac
 export default function CityPage() {
   const params = useParams();
   const cityName = params.name as string;
-  
+
   const [cityData, setCityData] = useState<any>(null);
   const [devices, setDevices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,12 +36,12 @@ export default function CityPage() {
   const loadCityData = async () => {
     try {
       setLoading(true);
-      
+
       // Fetch city overview
       const cityRes = await apiClient.getCityData(decodeURIComponent(cityName));
       setCityData(cityRes.data);
       setDevices(cityRes.data.devices || []);
-      
+
     } catch (error) {
       console.error('Error loading city data:', error);
       // Use mock data for demo
@@ -70,11 +76,11 @@ export default function CityPage() {
   const exportData = () => {
     const csv = [
       ['Device', 'AQI', 'Location', 'Last Updated'].join(','),
-      ...devices.map(d => 
+      ...devices.map(d =>
         [d.name, d.currentAqi, `${d.latitude},${d.longitude}`, new Date(d.lastSeen).toLocaleString()].join(',')
       )
     ].join('\n');
-    
+
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -113,7 +119,7 @@ export default function CityPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4">
       <div className="max-w-7xl mx-auto space-y-6">
-        
+
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -132,11 +138,11 @@ export default function CityPage() {
                 Real-time air quality monitoring • Public transparency dashboard
               </p>
               <div className="flex items-center gap-4 mt-4 text-sm text-gray-500">
-                <span><i className="far fa-clock mr-1"></i> Updated {new Date(cityData?.lastUpdated).toLocaleTimeString()}</span>
-                <span><i className="fas fa-broadcast-tower mr-1"></i> {cityData?.deviceCount} monitoring stations</span>
+                <span className="flex items-center gap-2"><Clock className="w-4 h-4" /> Updated {new Date(cityData?.lastUpdated).toLocaleTimeString()}</span>
+                <span className="flex items-center gap-2"><RadioTower className="w-4 h-4" /> {cityData?.deviceCount} monitoring stations</span>
               </div>
             </div>
-            
+
             {/* Actions */}
             <div className="flex gap-2">
               <button
@@ -174,7 +180,7 @@ export default function CityPage() {
                 </h2>
                 <p className="text-sm text-gray-500 mt-1">AQI</p>
               </div>
-              <div className={`w-20 h-20 rounded-full flex items-center justify-center text-3xl`} 
+              <div className={`w-20 h-20 rounded-full flex items-center justify-center text-3xl`}
                    style={{ backgroundColor: `${category.color}20` }}>
                 {category.icon}
               </div>
@@ -200,7 +206,7 @@ export default function CityPage() {
                   <span className="text-lg font-bold text-green-600">{cityData?.minAqi}</span>
                 </div>
                 <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full">
-                  <div className="h-full bg-green-500 rounded-full" 
+                  <div className="h-full bg-green-500 rounded-full"
                        style={{ width: `${(cityData?.minAqi / 200) * 100}%` }}></div>
                 </div>
               </div>
@@ -210,7 +216,7 @@ export default function CityPage() {
                   <span className="text-lg font-bold text-red-600">{cityData?.maxAqi}</span>
                 </div>
                 <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full">
-                  <div className="h-full bg-red-500 rounded-full" 
+                  <div className="h-full bg-red-500 rounded-full"
                        style={{ width: `${(cityData?.maxAqi / 200) * 100}%` }}></div>
                 </div>
               </div>
@@ -282,7 +288,7 @@ export default function CityPage() {
               </div>
             </div>
             <div className="h-96 rounded-xl overflow-hidden">
-              <AQIMap devices={devices} />
+              <DynamicMap devices={devices} />
             </div>
           </motion.div>
 
@@ -296,7 +302,7 @@ export default function CityPage() {
             <h3 className="text-xl font-bold mb-4">Active Stations</h3>
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {devices.map((device, index) => {
-                const deviceCategory = getAQICategory(device.currentAqi);
+                const deviceCategory = getAQICategory(device.currentAqi || 0);
                 return (
                   <motion.div
                     key={device.id}

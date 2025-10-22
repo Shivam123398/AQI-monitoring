@@ -1,0 +1,31 @@
+{
+  "name": "AeroGuard AI",
+  "short_name": "AeroGuard",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#667eea",
+  "icons": []
+}
+# Global environment for docker-compose
+
+# Database
+POSTGRES_USER=aqi
+POSTGRES_PASSWORD=aqi_password
+POSTGRES_DB=aqi_db
+
+# Backend
+JWT_SECRET=dev_jwt_secret_change_me
+API_KEY_SALT=dev_api_key_salt_change_me
+OPENWEATHER_API_KEY=dev_openweather_key
+RESEND_API_KEY=dev_resend_key
+TELEGRAM_BOT_TOKEN=dev_telegram_bot_token
+TELEGRAM_ALERT_CHAT_ID=
+CORS_ORIGIN=http://localhost:3001
+# Optional toggles
+ENABLE_JOBS=true
+ENABLE_ML_PREDICTIONS=false
+
+# Dashboard
+NEXT_PUBLIC_API_URL=http://backend:3000/api/v1
+

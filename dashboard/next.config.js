@@ -5,14 +5,7 @@ const nextConfig = {
   images: {
     domains: ['api.aeroguard.ai'],
   },
-  env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
-    NEXT_PUBLIC_MAP_CENTER_LAT: process.env.NEXT_PUBLIC_MAP_CENTER_LAT || '28.6139',
-    NEXT_PUBLIC_MAP_CENTER_LNG: process.env.NEXT_PUBLIC_MAP_CENTER_LNG || '77.2090',
-  },
-  experimental: {
-    appDir: true,
-  },
+  output: 'standalone',
   // PWA config
   async headers() {
     return [
@@ -24,6 +17,19 @@ const nextConfig = {
             value: 'application/manifest+json',
           },
         ],
+      },
+    ];
+  },
+  // Proxy API calls to backend service (Docker network)
+  async rewrites() {
+    return [
+      {
+        source: '/api/v1/:path*',
+        destination: 'http://backend:3000/api/v1/:path*',
+      },
+      {
+        source: '/health',
+        destination: 'http://backend:3000/health',
       },
     ];
   },

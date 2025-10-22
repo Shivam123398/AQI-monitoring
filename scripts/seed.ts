@@ -20,6 +20,10 @@ const LOCATIONS = [
   { name: 'Lodhi Garden', lat: 28.5934, lng: 77.2186, area: 'Central Delhi' },
 ];
 
+// Controls for seed data volume (override via env)
+const SEED_DAYS = parseInt(process.env.SEED_DAYS || '7', 10);
+const SEED_INTERVAL_MINUTES = parseInt(process.env.SEED_INTERVAL_MINUTES || '5', 10);
+
 /**
  * Generate device key
  */
@@ -61,13 +65,13 @@ function getAQICategory(aqi: number): string {
  */
 async function seedDevices() {
   console.log('📡 Seeding devices...');
-  
+
   const devices = [];
-  
+
   for (let i = 0; i < LOCATIONS.length; i++) {
     const loc = LOCATIONS[i];
     const deviceId = `AERO-${String(i + 1).padStart(3, '0')}`;
-    
+
     const device = await prisma.device.create({
       data: {
         id: deviceId,
@@ -88,11 +92,11 @@ async function seedDevices() {
         }
       }
     });
-    
+
     devices.push(device);
     console.log(`  ✓ Created device: ${device.name} (${device.id})`);
   }
-  
+
   return devices;
 }
 
@@ -100,44 +104,44 @@ async function seedDevices() {
  * Seed measurements (last 7 days)
  */
 async function seedMeasurements(devices: any[]) {
-  console.log('\n📊 Seeding measurements (7 days)...');
-  
+  console.log('\n📊 Seeding measurements (' + SEED_DAYS + ' days, ' + SEED_INTERVAL_MINUTES + ' min interval)...');
+
   const now = Date.now();
-  const DAYS = 7;
-  const INTERVAL_MINUTES = 5; // One measurement every 5 minutes
+  const DAYS = SEED_DAYS;
+  const INTERVAL_MINUTES = SEED_INTERVAL_MINUTES; // One measurement every X minutes
   const measurementsPerDay = (24 * 60) / INTERVAL_MINUTES;
   const totalMeasurements = DAYS * measurementsPerDay * devices.length;
-  
-  console.log(`  Generating ${totalMeasurements} measurements...`);
-  
+
+  console.log(`  Generating ${totalMeasurements} measurements (per device/day: ${measurementsPerDay})...`);
+
   let count = 0;
   const batchSize = 100;
   let batch: any[] = [];
-  
+
   for (let day = DAYS - 1; day >= 0; day--) {
     for (let device of devices) {
       // Each device has a base pollution level
       const basePM25 = 20 + Math.random() * 40; // 20-60 µg/m³
-      
+
       for (let interval = 0; interval < measurementsPerDay; interval++) {
         const timestamp = new Date(now - day * 24 * 60 * 60 * 1000 - interval * INTERVAL_MINUTES * 60 * 1000);
         const hour = timestamp.getHours();
-        
+
         // Diurnal pattern
         let hourlyFactor = 1.0;
         if (hour >= 7 && hour <= 9) hourlyFactor = 1.4;
         else if (hour >= 17 && hour <= 19) hourlyFactor = 1.5;
         else if (hour >= 0 && hour <= 5) hourlyFactor = 0.7;
-        
+
         const pm25 = Math.max(5, basePM25 * hourlyFactor + (Math.random() - 0.5) * 15);
         const aqi = calculateAQI(pm25);
         const iaq = Math.max(50, aqi * 1.5 + (Math.random() - 0.5) * 30);
         const co2 = 400 + (aqi - 50) * 8 + (Math.random() - 0.5) * 100;
-        
+
         const temp = 15 + 10 * Math.sin((hour - 6) * Math.PI / 12) + (Math.random() - 0.5) * 3;
         const humidity = 40 + 20 * Math.sin((hour - 3) * Math.PI / 12) + (Math.random() - 0.5) * 10;
         const pressure = 1013 + (Math.random() - 0.5) * 20;
-        
+
         batch.push({
           deviceId: device.id,
           measuredAt: timestamp,
@@ -167,24 +171,24 @@ async function seedMeasurements(devices: any[]) {
           rssi: -45 - Math.floor(Math.random() * 30),
           uptime: BigInt(Math.floor(Math.random() * 86400000))
         });
-        
+
         count++;
-        
+
         // Insert in batches
         if (batch.length >= batchSize) {
-          await prisma.measurement.createMany({ data: batch });
+          await prisma.measurement.createMany({ data: batch, skipDuplicates: true });
           batch = [];
           process.stdout.write(`\r  Progress: ${count}/${totalMeasurements} (${Math.round(count / totalMeasurements * 100)}%)`);
         }
       }
     }
   }
-  
+
   // Insert remaining
   if (batch.length > 0) {
-    await prisma.measurement.createMany({ data: batch });
+    await prisma.measurement.createMany({ data: batch, skipDuplicates: true });
   }
-  
+
   console.log(`\n  ✓ Created ${count} measurements`);
 }
 
@@ -193,9 +197,9 @@ async function seedMeasurements(devices: any[]) {
  */
 async function seedUsers() {
   console.log('\n👥 Seeding users...');
-  
+
   const users = [];
-  
+
   for (let i = 0; i < 5; i++) {
     const user = await prisma.user.create({
       data: {
@@ -213,11 +217,11 @@ async function seedUsers() {
         active: true
       }
     });
-    
+
     users.push(user);
     console.log(`  ✓ Created user: ${user.name} (${user.email})`);
   }
-  
+
   return users;
 }
 
@@ -226,10 +230,10 @@ async function seedUsers() {
  */
 async function seedAlertSubscriptions(users: any[], devices: any[]) {
   console.log('\n🔔 Seeding alert subscriptions...');
-  
+
   for (const user of users) {
     const device = faker.helpers.arrayElement(devices);
-    
+
     const subscription = await prisma.alertSubscription.create({
       data: {
         userId: user.id,
@@ -249,7 +253,7 @@ async function seedAlertSubscriptions(users: any[], devices: any[]) {
         active: true
       }
     });
-    
+
     console.log(`  ✓ Subscribed ${user.name} to ${device.name}`);
   }
 }
@@ -259,24 +263,24 @@ async function seedAlertSubscriptions(users: any[], devices: any[]) {
  */
 async function seedPredictions(devices: any[]) {
   console.log('\n🔮 Seeding predictions...');
-  
+
   const now = new Date();
-  
+
   for (const device of devices) {
     // Get latest AQI
     const latest = await prisma.measurement.findFirst({
       where: { deviceId: device.id },
       orderBy: { measuredAt: 'desc' }
     });
-    
+
     const baseAqi = latest?.aqiCalculated || 60;
-    
+
     // Create 24-hour forecast
     for (let hour = 1; hour <= 24; hour++) {
       const predictedFor = new Date(now.getTime() + hour * 60 * 60 * 1000);
       const variation = (Math.random() - 0.5) * 20;
       const forecast = Math.max(10, Math.min(300, baseAqi + variation));
-      
+
       await prisma.prediction.create({
         data: {
           deviceId: device.id,
@@ -292,7 +296,7 @@ async function seedPredictions(devices: any[]) {
         }
       });
     }
-    
+
     console.log(`  ✓ Created 24h forecast for ${device.name}`);
   }
 }
@@ -302,7 +306,7 @@ async function seedPredictions(devices: any[]) {
  */
 async function main() {
   console.log('🌱 Starting database seed...\n');
-  
+
   try {
     // Clear existing data
     console.log('🗑️  Clearing existing data...');
@@ -315,22 +319,22 @@ async function main() {
     await prisma.user.deleteMany();
     await prisma.device.deleteMany();
     console.log('  ✓ Cleared\n');
-    
+
     // Seed in order
     const devices = await seedDevices();
     await seedMeasurements(devices);
     const users = await seedUsers();
     await seedAlertSubscriptions(users, devices);
     await seedPredictions(devices);
-    
+
     console.log('\n✅ Database seeding completed successfully!\n');
     console.log('📊 Summary:');
     console.log(`   Devices: ${devices.length}`);
     console.log(`   Users: ${users.length}`);
-    console.log(`   Measurements: ~${devices.length * 7 * 288} (7 days, 5-min interval)`);
+    console.log(`   Measurements: ~${devices.length * SEED_DAYS * ((24 * 60) / SEED_INTERVAL_MINUTES)} (${SEED_DAYS} days, ${SEED_INTERVAL_MINUTES}-min interval)`);
     console.log(`   Predictions: ${devices.length * 24} (24h forecast per device)`);
     console.log('');
-    
+
   } catch (error) {
     console.error('❌ Seeding failed:', error);
     throw error;

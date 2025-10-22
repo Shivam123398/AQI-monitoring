@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { HealthRiskGauge } from '@/components/charts/HealthRiskGauge';
 import { apiClient } from '@/lib/api';
@@ -10,15 +10,29 @@ import toast from 'react-hot-toast';
 export default function HealthPage() {
   const [analysis, setAnalysis] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [devices, setDevices] = useState<any[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiClient.getDevices();
+        setDevices(res.data.data || []);
+        if (res.data.data?.length) setSelectedDeviceId(res.data.data[0].id);
+      } catch (e) {
+        // non-blocking
+      }
+    })();
+  }, []);
 
   const runAnalysis = async () => {
+    if (!selectedDeviceId) {
+      toast.error('Select a device to analyze');
+      return;
+    }
     setLoading(true);
     try {
-      // In production, use authenticated user ID
-      const res = await apiClient.analyzeHealth({
-        deviceId: 'DEVICE_ID', // Replace with actual device
-        periodDays: 7,
-      });
+      const res = await apiClient.analyzeHealth({ deviceId: selectedDeviceId, periodDays: 7 });
       setAnalysis(res.data);
       toast.success('Health risk analysis complete!');
     } catch (error) {
@@ -55,9 +69,22 @@ export default function HealthPage() {
                 Our AI analyzes your 7-day air quality exposure to estimate risks for asthma, COPD,
                 cardiovascular disease, and allergies based on WHO epidemiological data.
               </p>
+              <div className="flex flex-wrap items-center gap-3 mb-4">
+                <label htmlFor="device" className="text-sm text-gray-600 dark:text-gray-400">Device</label>
+                <select
+                  id="device"
+                  value={selectedDeviceId}
+                  onChange={(e) => setSelectedDeviceId(e.target.value)}
+                  className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm"
+                >
+                  {devices.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
               <button
                 onClick={runAnalysis}
-                disabled={loading}
+                disabled={loading || !selectedDeviceId}
                 className="bg-primary-500 hover:bg-primary-600 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg font-medium transition-colors"
               >
                 {loading ? 'Analyzing...' : 'Run Health Analysis'}

@@ -5,6 +5,7 @@ import rateLimit from '@fastify/rate-limit';
 import jwt from '@fastify/jwt';
 import { config } from './config';
 import { db } from './lib/db';
+import { startTelegramBot } from './services/telegram-bot';
 
 // Routes
 import ingestRoutes from './routes/ingest';
@@ -13,6 +14,7 @@ import deviceRoutes from './routes/devices';
 import predictionRoutes from './routes/predictions';
 import healthRoutes from './routes/health';
 import publicRoutes from './routes/public';
+import alertsRoutes from './routes/alerts';
 
 const server = Fastify({
   logger: {
@@ -67,17 +69,21 @@ async function start() {
     server.register(predictionRoutes, { prefix: '/api/v1/predictions' });
     server.register(healthRoutes, { prefix: '/api/v1/health' });
     server.register(publicRoutes, { prefix: '/api/v1/public' });
+    server.register(alertsRoutes, { prefix: '/api/v1/alerts' });
 
     // Start server
     await server.listen({ port: config.port, host: '0.0.0.0' });
     server.log.info(`🚀 AeroGuard AI Backend running on port ${config.port}`);
-    
+
+    // Start Telegram bot (optional, non-blocking)
+    startTelegramBot();
+
     // Start background jobs (if not using separate workers)
     if (config.enableJobs) {
       const { startAggregator } = await import('./jobs/aggregator');
       const { startForecaster } = await import('./jobs/forecaster');
       const { startAlerts } = await import('./jobs/alerts');
-      
+
       startAggregator();
       startForecaster();
       startAlerts();

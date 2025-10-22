@@ -27,7 +27,7 @@ export function ForecastChart({ predictions, confidence }: ForecastChartProps) {
   const currentAQI = predictions[0]?.aqi || 0;
   const futureAQI = predictions[predictions.length - 1]?.aqi || 0;
   const trend = futureAQI > currentAQI ? 'up' : futureAQI < currentAQI ? 'down' : 'stable';
-  const trendPercent = Math.abs(((futureAQI - currentAQI) / currentAQI) * 100);
+  const trendPercent = currentAQI > 0 ? Math.abs(((futureAQI - currentAQI) / currentAQI) * 100) : 0;
 
   return (
     <div className="space-y-4">

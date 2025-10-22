@@ -2,140 +2,170 @@ import { Telegraf } from 'telegraf';
 import { config } from '../config';
 import { db } from '../lib/db';
 
-const bot = new Telegraf(config.telegramBotToken);
+let bot: Telegraf | null = null;
 
-// Bot commands
-bot.start(async (ctx) => {
-  const telegramId = ctx.from.id.toString();
-  
-  await ctx.reply(
-    '🌬️ Welcome to AeroGuard AI!\n\n' +
-    'I will send you real-time air quality alerts.\n\n' +
-    'Commands:\n' +
-    '/register <email> - Link your account\n' +
-    '/status - Check current air quality\n' +
-    '/forecast - See 24-hour prediction\n' +
-    '/health - View health risk report\n' +
-    '/stop - Unsubscribe from alerts'
-  );
-});
+// Build a configured bot instance with all handlers
+function buildBot(token: string): Telegraf {
+  const instance = new Telegraf(token);
 
-bot.command('register', async (ctx) => {
-  const email = ctx.message.text.split(' ')[1];
-  
-  if (!email) {
-    return ctx.reply('Usage: /register your.email@example.com');
-  }
+  // Bot commands
+  instance.start(async (ctx) => {
+    // const telegramId = ctx.from.id.toString();
+    await ctx.reply(
+      '🌬️ Welcome to AeroGuard AI!\n\n' +
+        'I will send you real-time air quality alerts.\n\n' +
+        'Commands:\n' +
+        '/register <email> - Link your account\n' +
+        '/status - Check current air quality\n' +
+        '/forecast - See 24-hour prediction\n' +
+        '/health - View health risk report\n' +
+        '/stop - Unsubscribe from alerts'
+    );
+  });
 
-  const telegramId = ctx.from.id.toString();
+  instance.command('register', async (ctx) => {
+    const email = ctx.message.text.split(' ')[1];
 
-  try {
-    await db.user.update({
-      where: { email },
-      data: { telegramId },
+    if (!email) {
+      return ctx.reply('Usage: /register your.email@example.com');
+    }
+
+    const telegramId = ctx.from.id.toString();
+
+    try {
+      await db.user.update({
+        where: { email },
+        data: { telegramId },
+      });
+
+      await ctx.reply('✅ Account linked! You will now receive alerts on Telegram.');
+    } catch {
+      await ctx.reply('❌ Email not found. Please sign up on the web dashboard first.');
+    }
+  });
+
+  instance.command('status', async (ctx) => {
+    const telegramId = ctx.from.id.toString();
+    const user = await db.user.findUnique({ where: { telegramId } });
+
+    if (!user) {
+      return ctx.reply('Please register first: /register your.email@example.com');
+    }
+
+    // Get user's nearest device or subscribed device
+    const subscription = await db.alertSubscription.findFirst({
+      where: { userId: user.id },
+      include: { device: true },
     });
 
-    await ctx.reply('✅ Account linked! You will now receive alerts on Telegram.');
-  } catch (error) {
-    await ctx.reply('❌ Email not found. Please sign up on the web dashboard first.');
-  }
-});
+    if (!subscription?.device) {
+      return ctx.reply('No device found. Please configure alerts in the dashboard.');
+    }
 
-bot.command('status', async (ctx) => {
-  const telegramId = ctx.from.id.toString();
-  const user = await db.user.findUnique({ where: { telegramId } });
+    const latest = await db.measurement.findFirst({
+      where: { deviceId: subscription.deviceId! },
+      orderBy: { measuredAt: 'desc' },
+    });
 
-  if (!user) {
-    return ctx.reply('Please register first: /register your.email@example.com');
-  }
+    if (!latest) {
+      return ctx.reply('No recent data available.');
+    }
 
-  // Get user's nearest device or subscribed device
-  const subscription = await db.alertSubscription.findFirst({
-    where: { userId: user.id },
-    include: { device: true },
+    const emoji = getAQIEmoji(latest.aqiCalculated || 0);
+
+    await ctx.reply(
+      `${emoji} Current Air Quality - ${subscription.device.name}\n\n` +
+        `🔢 AQI: ${latest.aqiCalculated}\n` +
+        `📊 Category: ${latest.aqiCategory?.replace('_', ' ').toUpperCase()}\n` +
+        `🌡️ Temperature: ${latest.temperature}°C\n` +
+        `💧 Humidity: ${latest.humidity}%\n` +
+        `⏰ Updated: ${latest.measuredAt.toLocaleString()}`
+    );
   });
 
-  if (!subscription?.device) {
-    return ctx.reply('No device found. Please configure alerts in the dashboard.');
-  }
+  instance.command('forecast', async (ctx) => {
+    const telegramId = ctx.from.id.toString();
+    const user = await db.user.findUnique({ where: { telegramId } });
 
-  const latest = await db.measurement.findFirst({
-    where: { deviceId: subscription.deviceId! },
-    orderBy: { measuredAt: 'desc' },
+    if (!user) {
+      return ctx.reply('Please register first: /register your.email@example.com');
+    }
+
+    const subscription = await db.alertSubscription.findFirst({
+      where: { userId: user.id },
+      include: { device: true },
+    });
+
+    if (!subscription?.deviceId) {
+      return ctx.reply('No device configured.');
+    }
+
+    const predictions = await db.prediction.findMany({
+      where: {
+        deviceId: subscription.deviceId,
+        predictedFor: { gte: new Date() },
+      },
+      orderBy: { predictedFor: 'asc' },
+      take: 24,
+    });
+
+    if (predictions.length === 0) {
+      return ctx.reply('No forecast available yet. Check back in an hour.');
+    }
+
+    let message = `📈 24-Hour AQI Forecast - ${subscription.device?.name}\n\n`;
+
+    predictions.slice(0, 6).forEach((p) => {
+      const hour = new Date(p.predictedFor).getHours();
+      const emoji = getAQIEmoji(p.aqiForecast);
+      message += `${emoji} ${hour}:00 - AQI ${Math.round(p.aqiForecast)} (${p.aqiCategory})\n`;
+    });
+
+    message += `\n💡 Confidence: ${Math.round(predictions[0].confidence * 100)}%`;
+
+    await ctx.reply(message);
   });
 
-  if (!latest) {
-    return ctx.reply('No recent data available.');
+  return instance;
+}
+
+// Start bot (safe, optional)
+export async function startTelegramBot() {
+  if (!config.enableTelegram) {
+    console.log('ℹ️ Telegram bot disabled by config (ENABLE_TELEGRAM=false)');
+    return;
+  }
+  if (!config.telegramBotToken) {
+    console.log('ℹ️ TELEGRAM_BOT_TOKEN not set. Skipping Telegram bot.');
+    return;
   }
 
-  const emoji = getAQIEmoji(latest.aqiCalculated || 0);
-  
-  await ctx.reply(
-    `${emoji} Current Air Quality - ${subscription.device.name}\n\n` +
-    `🔢 AQI: ${latest.aqiCalculated}\n` +
-    `📊 Category: ${latest.aqiCategory?.replace('_', ' ').toUpperCase()}\n` +
-    `🌡️ Temperature: ${latest.temperature}°C\n` +
-    `💧 Humidity: ${latest.humidity}%\n` +
-    `⏰ Updated: ${latest.measuredAt.toLocaleString()}`
-  );
-});
+  try {
+    bot = buildBot(config.telegramBotToken);
+    await bot.launch();
+    console.log('✅ Telegram bot running');
 
-bot.command('forecast', async (ctx) => {
-  const telegramId = ctx.from.id.toString();
-  const user = await db.user.findUnique({ where: { telegramId } });
-
-  if (!user) {
-    return ctx.reply('Please register first: /register your.email@example.com');
+    process.once('SIGINT', () => bot?.stop('SIGINT'));
+    process.once('SIGTERM', () => bot?.stop('SIGTERM'));
+  } catch (error: any) {
+    const description = error?.response?.description || error?.message || String(error);
+    console.error('Telegram bot failed to start:', description);
+    // Ensure we don't crash the app if token is invalid (e.g., 404 Not Found)
+    bot = null;
   }
+}
 
-  const subscription = await db.alertSubscription.findFirst({
-    where: { userId: user.id },
-    include: { device: true },
-  });
-
-  if (!subscription?.deviceId) {
-    return ctx.reply('No device configured.');
-  }
-
-  const predictions = await db.prediction.findMany({
-    where: {
-      deviceId: subscription.deviceId,
-      predictedFor: { gte: new Date() },
-    },
-    orderBy: { predictedFor: 'asc' },
-    take: 24,
-  });
-
-  if (predictions.length === 0) {
-    return ctx.reply('No forecast available yet. Check back in an hour.');
-  }
-
-  let message = `📈 24-Hour AQI Forecast - ${subscription.device?.name}\n\n`;
-
-  predictions.slice(0, 6).forEach((p, i) => {
-    const hour = new Date(p.predictedFor).getHours();
-    const emoji = getAQIEmoji(p.aqiForecast);
-    message += `${emoji} ${hour}:00 - AQI ${Math.round(p.aqiForecast)} (${p.aqiCategory})\n`;
-  });
-
-  message += `\n💡 Confidence: ${Math.round(predictions[0].confidence * 100)}%`;
-
-  await ctx.reply(message);
-});
-
-// Launch bot
-bot.launch();
-console.log('✅ Telegram bot running');
-
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
-
-// Helper: Send alert to user
+// Helper: Send alert to user (no-op if bot not running)
 export async function sendTelegramAlert(telegramId: string, message: string, measurement: any) {
   try {
+    if (!bot) {
+      console.warn('Telegram bot not initialized; skipping Telegram alert.');
+      return;
+    }
+
     const emoji = getAQIEmoji(measurement.aqiCalculated || 0);
     const fullMessage = `${emoji} ${message}\n\n🔗 View details: https://app.aeroguard.ai`;
-    
+
     await bot.telegram.sendMessage(telegramId, fullMessage);
   } catch (error) {
     console.error('Telegram send error:', error);

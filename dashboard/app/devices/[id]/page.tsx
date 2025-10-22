@@ -7,7 +7,7 @@ import { AQICard } from '@/components/cards/AQICard';
 import { TimeSeriesChart } from '@/components/charts/TimeSeriesChart';
 import { apiClient } from '@/lib/api';
 import { getAQICategory, getWHOCompliance } from '@/lib/aqi-utils';
-import { ArrowLeft, MapPin, Wifi, Battery, Thermometer, Droplets, Wind, Download, Settings } from 'lucide-react';
+import { ArrowLeft, MapPin, Wifi, Battery, Thermometer, Droplets, Wind, Download, Settings, Clock, ArrowUp, ArrowDown, Database } from 'lucide-react';
 
 /**
  * Device Detail Page
@@ -17,7 +17,7 @@ export default function DeviceDetailPage() {
   const params = useParams();
   const router = useRouter();
   const deviceId = params.id as string;
-  
+
   const [device, setDevice] = useState<any>(null);
   const [measurements, setMeasurements] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
@@ -31,14 +31,14 @@ export default function DeviceDetailPage() {
   const loadDeviceData = async () => {
     try {
       setLoading(true);
-      
+
       // Calculate time range
       const end = new Date();
       const start = new Date();
       if (timeRange === '24h') start.setHours(start.getHours() - 24);
       else if (timeRange === '7d') start.setDate(start.getDate() - 7);
       else if (timeRange === '30d') start.setDate(start.getDate() - 30);
-      
+
       // Fetch device info and measurements
       const [deviceRes, measurementsRes] = await Promise.all([
         apiClient.getDevice(deviceId),
@@ -49,16 +49,16 @@ export default function DeviceDetailPage() {
           limit: 1000
         })
       ]);
-      
+
       setDevice(deviceRes.data);
       setMeasurements(measurementsRes.data.data || []);
-      
+
       // Calculate statistics
       if (measurementsRes.data.data && measurementsRes.data.data.length > 0) {
         const aqiValues = measurementsRes.data.data
           .map((m: any) => m.aqiCalculated)
           .filter((v: any) => v !== null);
-        
+
         setStats({
           avgAqi: Math.round(aqiValues.reduce((a: number, b: number) => a + b, 0) / aqiValues.length),
           maxAqi: Math.max(...aqiValues),
@@ -67,7 +67,7 @@ export default function DeviceDetailPage() {
           uptime: calculateUptime(measurementsRes.data.data)
         });
       }
-      
+
     } catch (error) {
       console.error('Error loading device:', error);
       // Use mock data
@@ -132,7 +132,16 @@ export default function DeviceDetailPage() {
 
   const exportDeviceData = async () => {
     try {
-      await apiClient.exportCSV({ device_id: deviceId });
+      const res = await apiClient.exportCSV({ device_id: deviceId });
+      const blob = new Blob([res.data], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${device?.name || deviceId}-measurements.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Export failed:', error);
     }
@@ -155,7 +164,7 @@ export default function DeviceDetailPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4">
       <div className="max-w-7xl mx-auto space-y-6">
-        
+
         {/* Back Button */}
         <button
           onClick={() => router.back()}
@@ -182,7 +191,7 @@ export default function DeviceDetailPage() {
               <p className="text-gray-600 dark:text-gray-400 mb-4">
                 {device?.description || 'AeroGuard AI monitoring station'}
               </p>
-              
+
               {/* Location & Metadata */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
                 <div className="flex items-center gap-2">
@@ -198,7 +207,7 @@ export default function DeviceDetailPage() {
                   <span className="text-gray-600">Uptime: {stats?.uptime?.toFixed(1)}%</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <i className="far fa-clock text-gray-500"></i>
+                  <Clock className="w-4 h-4 text-gray-500" />
                   <span className="text-gray-600">
                     Updated {new Date(device?.lastSeen).toLocaleTimeString()}
                   </span>
@@ -255,7 +264,7 @@ export default function DeviceDetailPage() {
                 <h3 className="text-3xl font-bold text-red-600">{stats?.maxAqi}</h3>
                 <p className="text-xs text-gray-500 mt-1">Highest recorded</p>
               </div>
-              <i className="fas fa-arrow-up text-4xl text-red-500"></i>
+              <ArrowUp className="w-10 h-10 text-red-500" />
             </div>
           </motion.div>
 
@@ -271,7 +280,7 @@ export default function DeviceDetailPage() {
                 <h3 className="text-3xl font-bold text-green-600">{stats?.minAqi}</h3>
                 <p className="text-xs text-gray-500 mt-1">Lowest recorded</p>
               </div>
-              <i className="fas fa-arrow-down text-4xl text-green-500"></i>
+              <ArrowDown className="w-10 h-10 text-green-500" />
             </div>
           </motion.div>
 
@@ -287,14 +296,14 @@ export default function DeviceDetailPage() {
                 <h3 className="text-3xl font-bold text-purple-600">{stats?.dataPoints}</h3>
                 <p className="text-xs text-gray-500 mt-1">Measurements</p>
               </div>
-              <i className="fas fa-database text-4xl text-purple-500"></i>
+              <Database className="w-10 h-10 text-purple-500" />
             </div>
           </motion.div>
         </div>
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
+
           {/* Current Status */}
           <div>
             <AQICard

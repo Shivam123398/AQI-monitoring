@@ -2,16 +2,41 @@ import nodemailer from 'nodemailer';
 import { config } from '../config';
 import { getHealthTip } from '../lib/aqi';
 
-// Using Resend (recommended) or SMTP
-const transporter = nodemailer.createTransport({
-  host: 'smtp.resend.com',
-  port: 465,
-  secure: true,
-  auth: {
-    user: 'resend',
-    pass: config.resendApiKey,
-  },
-});
+// Build transporter based on available config
+function buildTransporter() {
+  // Generic SMTP if provided
+  if (config.smtpHost && config.smtpUser && config.smtpPass) {
+    return nodemailer.createTransport({
+      host: config.smtpHost,
+      port: config.smtpPort || 465,
+      secure: config.smtpSecure !== false, // default true
+      auth: { user: config.smtpUser, pass: config.smtpPass },
+    });
+  }
+
+  // Gmail App Password
+  if (config.gmailUser && config.gmailPass) {
+    return nodemailer.createTransport({
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
+      auth: { user: config.gmailUser, pass: config.gmailPass },
+    });
+  }
+
+  // Resend SMTP fallback
+  return nodemailer.createTransport({
+    host: 'smtp.resend.com',
+    port: 465,
+    secure: true,
+    auth: {
+      user: 'resend',
+      pass: config.resendApiKey,
+    },
+  });
+}
+
+const transporter = buildTransporter();
 
 export async function sendEmailAlert(to: string, subject: string, measurement: any) {
   try {
@@ -43,19 +68,19 @@ export async function sendEmailAlert(to: string, subject: string, measurement: a
             <div class="metric">
               <h2>Current Air Quality</h2>
               <p><strong>AQI:</strong> ${measurement.aqiCalculated || 'N/A'}</p>
-              <p><strong>Category:</strong> ${category.replace('_', ' ').toUpperCase()}</p>
-              <p><strong>Temperature:</strong> ${measurement.temperature}°C</p>
-              <p><strong>Humidity:</strong> ${measurement.humidity}%</p>
+              <p><strong>Category:</strong> ${String(category).replace('_', ' ').toUpperCase()}</p>
+              <p><strong>Temperature:</strong> ${measurement.temperature ?? 'N/A'}°C</p>
+              <p><strong>Humidity:</strong> ${measurement.humidity ?? 'N/A'}%</p>
             </div>
             <div class="tip">
               <h3>💡 Health Recommendation</h3>
               <p>${healthTip}</p>
             </div>
-            <a href="https://app.aeroguard.ai" class="btn">View Dashboard</a>
+            <a href="${process.env.APP_URL || 'http://localhost:3000'}" class="btn">View Dashboard</a>
           </div>
           <div class="footer">
-            <p>AeroGuard AI - Predict the air. Protect your health.</p>
-            <p><a href="https://app.aeroguard.ai/settings">Manage alert preferences</a></p>
+            <p>AeroGuard AI—Predict the air. Protect your health.</p>
+            <p><a href="${(process.env.APP_URL || 'http://localhost:3000') + '/alerts'}">Manage alert preferences</a></p>
           </div>
         </div>
       </body>
@@ -63,7 +88,7 @@ export async function sendEmailAlert(to: string, subject: string, measurement: a
     `;
 
     await transporter.sendMail({
-      from: 'AeroGuard AI <alerts@aeroguard.ai>',
+      from: config.emailFrom || `AeroGuard AI <${config.gmailUser || 'alerts@aeroguard.ai'}>`,
       to,
       subject: `🚨 ${subject}`,
       html,

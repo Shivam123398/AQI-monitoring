@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl"]
 }
 
 datasource db {
@@ -37,7 +38,7 @@ model Measurement {
   id              String   @id @default(uuid())
   deviceId        String   @map("device_id")
   measuredAt      DateTime @map("measured_at")
-  
+
   // Sensor readings
   mq135Raw        Float?   @map("mq135_raw")
   iaqScore        Float?   @map("iaq_score")
@@ -46,23 +47,23 @@ model Measurement {
   humidity        Float?
   pressureHpa     Float?   @map("pressure_hpa")
   altitudeM       Float?   @map("altitude_m")
-  
+
   // Enriched data (from external APIs)
   pm25Estimated   Float?   @map("pm25_estimated")
   pm25Api         Float?   @map("pm25_api")
   pm10Api         Float?   @map("pm10_api")
   uvIndex         Float?   @map("uv_index")
-  
+
   // Calculated metrics
   aqiCalculated   Float?   @map("aqi_calculated")
   aqiCategory     String?  @map("aqi_category") // good, moderate, unhealthy_sensitive, unhealthy, very_unhealthy, hazardous
-  
+
   // Metadata
   externalData    Json?    @map("external_data") @default("{}")
   qualityFlags    Json?    @map("quality_flags") @default("{}")
   rssi            Int?
   uptime          BigInt?
-  
+
   createdAt       DateTime @default(now()) @map("created_at")
 
   device          Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
@@ -79,16 +80,16 @@ model Prediction {
   deviceId       String?  @map("device_id")
   areaGrid       String?  @map("area_grid") // For area-level predictions
   predictedFor   DateTime @map("predicted_for")
-  
+
   // Forecasts
   aqiForecast    Float    @map("aqi_forecast")
   aqiCategory    String?  @map("aqi_category")
   confidence     Float    @default(0.0)
-  
+
   // Model metadata
   modelVersion   String   @map("model_version")
   features       Json?    @default("{}")
-  
+
   createdAt      DateTime @default(now()) @map("created_at")
 
   device         Device?  @relation(fields: [deviceId], references: [id], onDelete: Cascade)
@@ -102,25 +103,25 @@ model HealthRisk {
   id                   String   @id @default(uuid())
   deviceId             String?  @map("device_id")
   userId               String?  @map("user_id")
-  
+
   periodStart          DateTime @map("period_start")
   periodEnd            DateTime @map("period_end")
-  
+
   // Risk scores (0-100)
   exposureScore        Float    @map("exposure_score")
   asthmaRisk           Float?   @map("asthma_risk")
   copdRisk             Float?   @map("copd_risk")
   cardiovascularRisk   Float?   @map("cardiovascular_risk")
   allergyRisk          Float?   @map("allergy_risk")
-  
+
   // Recommendations
   recommendations      Json     @default("[]")
-  
+
   // Metadata
   avgAqi               Float?   @map("avg_aqi")
   peakAqi              Float?   @map("peak_aqi")
   hoursUnhealthy       Int?     @map("hours_unhealthy")
-  
+
   createdAt            DateTime @default(now()) @map("created_at")
 
   device               Device?  @relation(fields: [deviceId], references: [id], onDelete: Cascade)
@@ -137,19 +138,19 @@ model User {
   passwordHash     String?  @map("password_hash")
   name             String?
   telegramId       String?  @unique @map("telegram_id")
-  
+
   // Health profile (optional, HIPAA-sensitive)
   healthProfile    Json?    @map("health_profile") @default("{}")
-  
+
   // Preferences
   homeLatitude     Float?   @map("home_latitude")
   homeLongitude    Float?   @map("home_longitude")
   units            String   @default("metric") // metric or imperial
   aqiStandard      String   @default("us_epa") @map("aqi_standard") // us_epa or who
-  
+
   role             String   @default("user") // user, admin
   active           Boolean  @default(true)
-  
+
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
@@ -164,14 +165,14 @@ model AlertSubscription {
   userId      String   @map("user_id")
   deviceId    String?  @map("device_id")
   areaGrid    String?  @map("area_grid")
-  
+
   alertType   String   @map("alert_type") // threshold, forecast, health_risk
   thresholds  Json     @default("{}")
   channels    Json     @default("[]") // ["email", "telegram", "push"]
-  
+
   cooldownMin Int      @default(60) @map("cooldown_min") // Minutes between alerts
   quietHours  Json?    @map("quiet_hours") // {start: "22:00", end: "07:00"}
-  
+
   active      Boolean  @default(true)
   createdAt   DateTime @default(now()) @map("created_at")
 
@@ -188,11 +189,11 @@ model Alert {
   id               String    @id @default(uuid())
   measurementId    String?   @map("measurement_id")
   subscriptionId   String    @map("subscription_id")
-  
+
   severity         String    // info, warning, alert, emergency
   message          String
   payload          Json      @default("{}")
-  
+
   sentAt           DateTime  @default(now()) @map("sent_at")
   acknowledged     Boolean   @default(false)
   acknowledgedAt   DateTime? @map("acknowledged_at")
@@ -209,19 +210,19 @@ model Aggregate {
   areaGrid     String   @map("area_grid") // H3 hex or lat/lon grid cell
   periodStart  DateTime @map("period_start")
   intervalType String   @map("interval_type") // 1min, 15min, 1hour, 1day
-  
+
   avgAqi       Float?   @map("avg_aqi")
   maxAqi       Float?   @map("max_aqi")
   minAqi       Float?   @map("min_aqi")
   medianAqi    Float?   @map("median_aqi")
-  
+
   avgTemp      Float?   @map("avg_temp")
   avgHumidity  Float?   @map("avg_humidity")
   avgPressure  Float?   @map("avg_pressure")
-  
+
   deviceCount  Int      @map("device_count")
   stats        Json?    @default("{}")
-  
+
   createdAt    DateTime @default(now()) @map("created_at")
 
   @@unique([areaGrid, periodStart, intervalType])

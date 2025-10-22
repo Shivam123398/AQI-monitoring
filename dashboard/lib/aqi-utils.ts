@@ -68,7 +68,8 @@ export function getAQICategory(aqi: number): AQICategory {
 }
 
 export function formatAQI(aqi: number | null | undefined): string {
-  return aqi ? Math.round(aqi).toString() : 'N/A';
+  if (aqi === null || aqi === undefined || Number.isNaN(aqi as any)) return 'N/A';
+  return Math.round(aqi).toString();
 }
 
 export function getWHOCompliance(pm25: number): { badge: string; color: string } {

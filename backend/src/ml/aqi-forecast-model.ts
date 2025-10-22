@@ -3,7 +3,8 @@
  * Loads trained LSTM model and generates 24-hour predictions
  */
 
-import * as tf from '@tensorflow/tfjs-node';
+// Remove static import of tfjs-node to avoid install/build failures on unsupported Node versions
+// import * as tf from '@tensorflow/tfjs-node';
 import { db } from '../lib/db';
 import path from 'path';
 import fs from 'fs';
@@ -26,12 +27,33 @@ interface ForecastOutput {
 }
 
 class AQIForecaster {
-  private model: tf.LayersModel | null = null;
+  private model: any | null = null;
   private scalerParams: any = null;
   private modelVersion = '1.0.0';
+  private tf: any | null = null;
+
+  private async loadTF(): Promise<any | null> {
+    if (this.tf) return this.tf;
+    try {
+      // Try to load native Node backend if available using computed specifier to avoid TS module resolution
+      const pkgName = '@tensorflow/tfjs-node';
+      const mod = await import(pkgName as string);
+      this.tf = mod;
+      return this.tf;
+    } catch (err: any) {
+      console.warn('[ML] TensorFlow backend not available. Forecasts are disabled.', err?.message || err);
+      this.tf = null;
+      return null;
+    }
+  }
 
   async loadModel() {
     if (this.model) return;
+
+    const tf = await this.loadTF();
+    if (!tf) {
+      return; // TF not available, skip
+    }
 
     const modelPath = path.join(process.cwd(), 'models', 'aqi_lstm_model');
     const scalerPath = path.join(process.cwd(), 'models', 'scaler_params.json');
@@ -69,8 +91,9 @@ class AQIForecaster {
 
   async forecast(input: ForecastInput): Promise<ForecastOutput | null> {
     await this.loadModel();
-    if (!this.model) return null;
+    if (!this.model || !this.tf) return null;
 
+    const tf = this.tf;
     const lookback = input.lookbackHours || 24;
 
     // Fetch last 24 hours of data
@@ -113,7 +136,7 @@ class AQIForecaster {
     const inputTensor = tf.tensor3d([normalizedData]);
 
     // Predict
-    const predictionTensor = this.model.predict(inputTensor) as tf.Tensor;
+    const predictionTensor = this.model.predict(inputTensor) as any;
     const predictionData = await predictionTensor.data();
 
     inputTensor.dispose();
@@ -121,7 +144,8 @@ class AQIForecaster {
 
     // Denormalize and format
     const now = new Date();
-    const predictions = Array.from(predictionData).map((normalizedAQI, i) => {
+    const values = Array.from(predictionData as unknown as number[]);
+    const predictions = values.map((normalizedAQI: number, i: number) => {
       const aqi = Math.max(0, Math.round(this.denormalizeAQI(normalizedAQI)));
       const timestamp = new Date(now.getTime() + (i + 1) * 60 * 60 * 1000);
 

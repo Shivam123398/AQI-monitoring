@@ -1,0 +1,115 @@
+name: aqi-monitoring
+
+networks:
+  aqi_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  firmware_build:
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: aqi_postgres
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - aqi_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: aqi_redis
+    command: ["redis-server", "--appendonly", "yes"]
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - aqi_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aqi_backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - ./.env
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
+      - REDIS_URL=redis://redis:6379
+      - CORS_ORIGIN=${CORS_ORIGIN}
+      - PORT=3000
+    networks:
+      - aqi_net
+
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-/api/v1}"
+    container_name: aqi_dashboard
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    ports:
+      - "3000:3000"
+    networks:
+      - aqi_net
+
+  seed:
+    build:
+      context: .
+      dockerfile: scripts/Dockerfile
+    container_name: aqi_seed
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - ./.env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
+    networks:
+      - aqi_net
+    restart: "no"
+    profiles: ["seed"]
+
+  firmware:
+    build:
+      context: ./firmware
+      dockerfile: Dockerfile
+    container_name: aqi_firmware
+    networks:
+      - aqi_net
+    volumes:
+      - firmware_build:/workspace/.pio
+    restart: "no"
+    profiles: ["firmware"]

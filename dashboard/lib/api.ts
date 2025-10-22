@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -29,6 +29,9 @@ export const apiClient = {
   getDevice: (id: string) =>
     api.get(`/devices/${id}`),
 
+  registerDevice: (data: { name: string; latitude?: number; longitude?: number; areaName?: string }) =>
+    api.post('/devices/register', data),
+
   // Predictions
   getPredictions: (deviceId: string) =>
     api.get(`/predictions/${deviceId}`),
@@ -42,6 +45,40 @@ export const apiClient = {
 
   analyzeHealth: (data: { deviceId?: string; userId?: string; periodDays?: number }) =>
     api.post('/health/analyze', data),
+
+  // Ingest (for simulator/testing)
+  ingest: (payload: {
+    device_id: string;
+    firmware_version?: string;
+    timestamp: number; // seconds epoch
+    sensors: {
+      mq135_raw?: number;
+      iaq_score?: number;
+      co2_equiv?: number;
+      temperature?: number;
+      humidity?: number;
+      pressure_hpa?: number;
+      altitude_m?: number;
+    };
+    meta?: { uptime_ms?: number; rssi?: number; free_heap?: number };
+    signature?: string;
+  }) => api.post('/ingest', payload),
+
+  simulateSpike: async (deviceId: string, aqiTarget = 180) => {
+    const now = Math.floor(Date.now() / 1000);
+    const payload = {
+      device_id: deviceId,
+      timestamp: now,
+      sensors: {
+        iaq_score: 300, // high IAQ -> high estimated PM2.5
+        temperature: 26,
+        humidity: 45,
+        pressure_hpa: 1010,
+      },
+      meta: { rssi: -60 },
+    };
+    return api.post('/ingest', payload);
+  },
 
   // Public
   getCityData: (cityName: string) =>
