@@ -12,7 +12,61 @@ Key features (frontend focus)
 Backend highlights
 - Fastify API with endpoints under `/api/v1`: devices, measurements, predictions, health, public.
 - Ingest endpoint verifies HMAC (optional), enriches via OpenWeather PM2.5, and computes AQI.
+- **ESP Device Support**: Flexible payload format with auto-registration, timestamp fallback, and duplicate prevention.
 - Jobs: aggregator/forecaster/alerts (controlled by env flags) and Telegram/email alert services.
+
+---
+
+## ESP Device Integration
+
+### Sending Measurements from ESP Devices
+
+The `/api/v1/ingest` endpoint accepts flexible payload formats from ESP32/ESP8266 devices.
+
+**Example ESP Payload:**
+```json
+{
+  "device_id": "ESP-001",
+  "temperature": 32.2,
+  "humidity": 64.0,
+  "pressure": 990.0,
+  "co2eq": 2267.6,
+  "iaq": 208.0,
+  "aqi": 354,
+  "aqiColor": "#7E0023",
+  "pm25": 303.51,
+  "healthMessage": "Health emergency! Remain indoors.",
+  "meta": {
+    "rssi": -65,
+    "uptime_ms": 123456789
+  }
+}
+```
+
+**Key Features:**
+- **Auto-registration**: Unknown devices are automatically registered
+- **Timestamp handling**: Server uses current time if not provided
+- **Duplicate prevention**: Unique constraint on (device_id, measured_at)
+- **Flexible format**: Supports both direct fields and nested `sensors` object
+- **No crashes**: Upsert logic prevents errors on duplicate measurements
+
+**Testing ESP Integration:**
+```bash
+# Run the test script
+cd backend
+node ../test-esp-ingest.js http://localhost:3000/api/v1
+```
+
+**Frontend Display:**
+All measurements are displayed on the dashboard with:
+- Temperature, Humidity, Pressure
+- CO2 equivalent, IAQ Score
+- AQI with category and color
+- PM2.5 estimation
+- Health advisory message
+- Full timestamp (date + time)
+
+See `/tmp/ESP_INGESTION_API.md` for complete API documentation and ESP code examples.
 
 ---
 
