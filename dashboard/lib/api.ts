@@ -1,6 +1,18 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
+// Resolve API base URL at runtime
+function resolveApiBase(): string {
+  const envBase = process.env.NEXT_PUBLIC_API_URL;
+  if (envBase && envBase.trim().length > 0) return envBase;
+  // In the browser, prefer same-origin so Next.js rewrites proxy to backend
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}/api/v1`;
+  }
+  // On the server (SSR), default to backend service name inside Docker network
+  return 'http://backend:3000/api/v1';
+}
+
+const API_BASE_URL = resolveApiBase();
 
 export const api = axios.create({
   baseURL: API_BASE_URL,

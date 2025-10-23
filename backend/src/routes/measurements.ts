@@ -2,6 +2,28 @@ import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { db } from '../lib/db';
 
+// Helper to convert BigInt fields to numbers for JSON safety
+function serializeMeasurement(m: any) {
+  return {
+    ...m,
+    uptime: m.uptime != null ? Number(m.uptime) : null,
+  };
+}
+
+// Recursively sanitize any BigInt values in an object/array
+function sanitizeBigInt<T>(value: T): T {
+  if (typeof value === 'bigint') return Number(value) as unknown as T;
+  if (Array.isArray(value)) return (value as any).map((v: any) => sanitizeBigInt(v)) as T;
+  if (value && typeof value === 'object') {
+    const out: any = {};
+    for (const [k, v] of Object.entries(value as any)) {
+      out[k] = sanitizeBigInt(v);
+    }
+    return out as T;
+  }
+  return value;
+}
+
 const querySchema = z.object({
   device_id: z.string().optional(),
   start: z.string().datetime().optional(),
@@ -36,10 +58,9 @@ const measurementRoutes: FastifyPluginAsync = async (server) => {
         },
       });
 
-      return reply.send({
-        count: measurements.length,
-        data: measurements,
-      });
+      const data = measurements.map(serializeMeasurement);
+      const payload = { count: data.length, data };
+      return reply.send(sanitizeBigInt(payload));
     } catch (error: any) {
       server.log.error(error);
       return reply.code(400).send({ error: error.message });
@@ -58,7 +79,7 @@ const measurementRoutes: FastifyPluginAsync = async (server) => {
       return reply.code(404).send({ error: 'Measurement not found' });
     }
 
-    return reply.send(measurement);
+    return reply.send(sanitizeBigInt(serializeMeasurement(measurement)));
   });
 
   // CSV Export

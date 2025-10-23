@@ -20,16 +20,18 @@ const nextConfig = {
       },
     ];
   },
-  // Proxy API calls to backend service (Docker network)
+  // Proxy API calls to backend service; configurable for dev or Docker
   async rewrites() {
+    // Prefer explicit BACKEND_URL; otherwise use localhost:4000 in dev, backend:3000 in production (Docker)
+    const backendBase = process.env.BACKEND_URL;
     return [
       {
         source: '/api/v1/:path*',
-        destination: 'http://backend:3000/api/v1/:path*',
+        destination: `${backendBase}/api/v1/:path*`,
       },
       {
         source: '/health',
-        destination: 'http://backend:3000/health',
+        destination: `${backendBase}/health`,
       },
     ];
   },

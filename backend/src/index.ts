@@ -54,11 +54,19 @@ async function start() {
     // Health check
     server.get('/health', async () => {
       const dbStatus = await db.$queryRaw`SELECT 1 as alive`;
+       // Extract database name from DATABASE_URL for visibility
+      let databaseName: string | undefined;
+      try {
+        const url = new URL(process.env.DATABASE_URL as string);
+        // postgres URL pathname like "/aqi_db"
+        databaseName = url.pathname.replace(/^\//, '') || undefined;
+      } catch {}
       return {
         status: 'ok',
         version: '1.0.0',
         timestamp: new Date().toISOString(),
         database: dbStatus ? 'connected' : 'disconnected',
+        databaseName,
       };
     });
 
