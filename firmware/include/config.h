@@ -6,16 +6,16 @@
 // ============================================================================
 
 // Device Identity
-#define DEVICE_ID "AERO-NODE-001"  // Unique per device
-#define DEVICE_KEY "your-device-secret-key-32chars"  // Provision from backend
+#define DEVICE_ID "AERO-ROURKELA-01"  // Unique per device
+#define DEVICE_KEY "kGj3@z7P!qT9$L8rVb2mXyW4sN6fC1eH"  // Provision from backend
 #define FIRMWARE_VERSION "1.2.0"
 
 // WiFi Provisioning (WiFiManager will override if not configured)
-#define WIFI_SSID ""  // Leave empty for captive portal
-#define WIFI_PASSWORD ""
+#define WIFI_SSID "ROURKELA_STATION"  // Leave empty for captive portal
+#define WIFI_PASSWORD "rourkela123"
 
 // Backend Endpoints (choose one primary)
-#define USE_MQTT true  // Set false to use HTTPS POST only
+#define USE_MQTT false  // Set false to use HTTPS POST only
 
 #if USE_MQTT
   #define MQTT_BROKER "your-hivemq-instance.hivemq.cloud"
@@ -25,7 +25,7 @@
   #define MQTT_TOPIC_PUB "aeroguard/measurements"
   #define MQTT_TOPIC_SUB "aeroguard/commands"
 #else
-  #define API_ENDPOINT "https://api.aeroguard.app/api/v1/ingest"
+  #define API_ENDPOINT "http://192.168.1.50:3000/api/v1/ingest"
   #define API_TIMEOUT 10000  // ms
 #endif
 

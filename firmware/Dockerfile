@@ -9,7 +9,7 @@ COPY . /workspace
 RUN pio pkg update && pio run
 
 # Default command rebuilds (can be overridden)
-CMD ["pio", "run"]
+CMD ["pio", "device", "monitor"]
 # Backend environment sample
 
 # Server

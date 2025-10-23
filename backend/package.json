@@ -15,8 +15,10 @@
     "jobs:aggregator": "tsx src/jobs/aggregator.ts",
     "jobs:forecaster": "tsx src/jobs/forecaster.ts",
     "jobs:alerts": "tsx src/jobs/alerts.ts",
-    "ml:train": "python3 src/ml/train.py"
+    "ml:train": "python3 src/ml/train.py",
+    "device:register": "tsx scripts/register-device.ts"
   },
+  
   "dependencies": {
     "@fastify/cors": "^8.4.2",
     "@fastify/helmet": "^11.1.1",
