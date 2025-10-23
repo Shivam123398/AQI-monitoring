@@ -1,9 +1,6 @@
 import '@/styles/globals.css';
-import { Inter } from 'next/font/google';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import Header from '@/components/layout/Header';
-
-const inter = Inter({ subsets: ['latin'] });
 
 export const metadata = {
   title: 'AeroGuard AI - Predict the air. Protect your health.',
@@ -15,7 +12,7 @@ export const metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className="font-sans">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
             <Header />
@@ -27,4 +24,4 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </body>
     </html>
   );
-}        
+}

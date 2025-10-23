@@ -69,6 +69,7 @@ model Measurement {
   device          Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
   alerts          Alert[]
 
+  @@unique([deviceId, measuredAt])
   @@index([deviceId, measuredAt(sort: Desc)])
   @@index([aqiCategory, measuredAt])
   @@index([measuredAt])

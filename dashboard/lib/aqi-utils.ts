@@ -80,3 +80,26 @@ export function getWHOCompliance(pm25: number): { badge: string; color: string }
   if (pm25 <= 75) return { badge: 'WHO IT-1', color: 'text-red-500' };
   return { badge: 'Exceeds WHO', color: 'text-red-700' };
 }
+
+// PM2.5 breakpoints (µg/m³ to AQI) - US EPA Standard
+const PM25_BREAKPOINTS = [
+  { cLow: 0.0, cHigh: 12.0, iLow: 0, iHigh: 50 },       // Good
+  { cLow: 12.1, cHigh: 35.4, iLow: 51, iHigh: 100 },    // Moderate
+  { cLow: 35.5, cHigh: 55.4, iLow: 101, iHigh: 150 },   // Unhealthy for Sensitive Groups
+  { cLow: 55.5, cHigh: 150.4, iLow: 151, iHigh: 200 },  // Unhealthy
+  { cLow: 150.5, cHigh: 250.4, iLow: 201, iHigh: 300 }, // Very Unhealthy
+  { cLow: 250.5, cHigh: 500.4, iLow: 301, iHigh: 500 }, // Hazardous
+];
+
+/**
+ * Convert AQI to approximate PM2.5 (reverse calculation)
+ */
+export function aqiToPM25(aqi: number): number {
+  for (const bp of PM25_BREAKPOINTS) {
+    if (aqi >= bp.iLow && aqi <= bp.iHigh) {
+      const pm25 = ((aqi - bp.iLow) / (bp.iHigh - bp.iLow)) * (bp.cHigh - bp.cLow) + bp.cLow;
+      return Math.round(pm25 * 100) / 100;
+    }
+  }
+  return 0;
+}

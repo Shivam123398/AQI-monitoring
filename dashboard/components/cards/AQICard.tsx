@@ -1,20 +1,42 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { getAQICategory, formatAQI } from '@/lib/aqi-utils';
-import { Wind, Droplets, Thermometer, Activity } from 'lucide-react';
+import { getAQICategory, formatAQI, aqiToPM25 } from '@/lib/aqi-utils';
+import { Wind, Droplets, Thermometer, Activity, Gauge, Cloud } from 'lucide-react';
 
 interface AQICardProps {
   aqi: number;
   iaq?: number;
   temperature?: number;
   humidity?: number;
-  timestamp?: Date;
+  pressure?: number;
+  co2Equiv?: number;
+  pm25?: number;
+  timestamp?: Date | string;
   deviceName?: string;
+  externalData?: any;
 }
 
-export function AQICard({ aqi, iaq, temperature, humidity, timestamp, deviceName }: AQICardProps) {
+export function AQICard({ 
+  aqi, 
+  iaq, 
+  temperature, 
+  humidity, 
+  pressure,
+  co2Equiv,
+  pm25,
+  timestamp, 
+  deviceName,
+  externalData 
+}: AQICardProps) {
   const category = getAQICategory(aqi);
+  
+  // Get health message and color from externalData if available
+  const healthMessage = externalData?.esp_data?.health_message ?? category.healthTip;
+  const aqiColor = externalData?.esp_data?.aqi_color ?? category.color;
+  
+  // Estimate PM2.5 if not provided
+  const estimatedPM25 = pm25 ?? aqiToPM25(aqi);
 
   return (
     <motion.div
@@ -27,7 +49,7 @@ export function AQICard({ aqi, iaq, temperature, humidity, timestamp, deviceName
       <div
         className="absolute inset-0 opacity-10"
         style={{
-          background: `radial-gradient(circle at top right, ${category.color}, transparent)`,
+          background: `radial-gradient(circle at top right, ${aqiColor}, transparent)`,
         }}
       />
 
@@ -38,7 +60,7 @@ export function AQICard({ aqi, iaq, temperature, humidity, timestamp, deviceName
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">{deviceName}</h3>
             <span className="text-xs text-gray-500">
-              {timestamp ? new Date(timestamp).toLocaleTimeString() : 'Live'}
+              {timestamp ? new Date(timestamp).toLocaleString() : 'Live'}
             </span>
           </div>
         )}
@@ -52,9 +74,12 @@ export function AQICard({ aqi, iaq, temperature, humidity, timestamp, deviceName
               </span>
               <span className="text-2xl text-gray-400">AQI</span>
             </div>
-            <div className={`mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full ${category.bgColor} bg-opacity-20`}>
+            <div 
+              className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-opacity-20"
+              style={{ backgroundColor: `${aqiColor}20` }}
+            >
               <span className="text-lg">{category.icon}</span>
-              <span className={`text-sm font-semibold ${category.textColor}`}>{category.name}</span>
+              <span className="text-sm font-semibold" style={{ color: aqiColor }}>{category.name}</span>
             </div>
           </div>
 
@@ -74,7 +99,7 @@ export function AQICard({ aqi, iaq, temperature, humidity, timestamp, deviceName
                 cx="48"
                 cy="48"
                 r="40"
-                stroke={category.color}
+                stroke={aqiColor}
                 strokeWidth="8"
                 fill="transparent"
                 strokeDasharray={`${(aqi / 500) * 251.2} 251.2`}
@@ -87,23 +112,14 @@ export function AQICard({ aqi, iaq, temperature, humidity, timestamp, deviceName
           </div>
         </div>
 
-        {/* Secondary metrics */}
-        <div className="grid grid-cols-3 gap-4">
-          {iaq !== undefined && (
-            <div className="flex items-center gap-2">
-              <Wind className="w-4 h-4 text-blue-500" />
-              <div>
-                <div className="text-xs text-gray-500">IAQ</div>
-                <div className="text-sm font-semibold">{Math.round(iaq)}</div>
-              </div>
-            </div>
-          )}
+        {/* Sensor readings grid */}
+        <div className="grid grid-cols-3 gap-4 mb-4">
           {temperature !== undefined && (
             <div className="flex items-center gap-2">
               <Thermometer className="w-4 h-4 text-red-500" />
               <div>
                 <div className="text-xs text-gray-500">Temp</div>
-                <div className="text-sm font-semibold">{temperature.toFixed(1)}°C</div>
+                <div className="text-sm font-semibold">{temperature.toFixed(1)} °C</div>
               </div>
             </div>
           )}
@@ -112,15 +128,60 @@ export function AQICard({ aqi, iaq, temperature, humidity, timestamp, deviceName
               <Droplets className="w-4 h-4 text-cyan-500" />
               <div>
                 <div className="text-xs text-gray-500">Humidity</div>
-                <div className="text-sm font-semibold">{Math.round(humidity)}%</div>
+                <div className="text-sm font-semibold">{humidity.toFixed(1)} %</div>
+              </div>
+            </div>
+          )}
+          {pressure !== undefined && (
+            <div className="flex items-center gap-2">
+              <Gauge className="w-4 h-4 text-purple-500" />
+              <div>
+                <div className="text-xs text-gray-500">Pressure</div>
+                <div className="text-sm font-semibold">{pressure.toFixed(1)} hPa</div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Additional readings */}
+        <div className="grid grid-cols-3 gap-4 mb-4">
+          {co2Equiv !== undefined && (
+            <div className="flex items-center gap-2">
+              <Cloud className="w-4 h-4 text-gray-500" />
+              <div>
+                <div className="text-xs text-gray-500">CO2eq</div>
+                <div className="text-sm font-semibold">{co2Equiv.toFixed(1)} ppm</div>
+              </div>
+            </div>
+          )}
+          {iaq !== undefined && (
+            <div className="flex items-center gap-2">
+              <Wind className="w-4 h-4 text-blue-500" />
+              <div>
+                <div className="text-xs text-gray-500">IAQ</div>
+                <div className="text-sm font-semibold">{iaq.toFixed(1)}</div>
+              </div>
+            </div>
+          )}
+          {estimatedPM25 > 0 && (
+            <div className="flex items-center gap-2">
+              <Activity className="w-4 h-4 text-orange-500" />
+              <div>
+                <div className="text-xs text-gray-500">PM2.5</div>
+                <div className="text-sm font-semibold">{estimatedPM25.toFixed(2)} µg/m³</div>
               </div>
             </div>
           )}
         </div>
 
         {/* Health tip */}
-        <div className="mt-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-          <p className="text-xs text-blue-800 dark:text-blue-300">{category.healthTip}</p>
+        <div className="mt-4 p-3 rounded-lg border" style={{ 
+          backgroundColor: `${aqiColor}10`,
+          borderColor: `${aqiColor}40`
+        }}>
+          <p className="text-xs font-medium" style={{ color: aqiColor }}>
+            💡 {healthMessage}
+          </p>
         </div>
       </div>
     </motion.div>
