@@ -307,12 +307,16 @@ export default function DeviceDetailPage() {
           {/* Current Status */}
           <div>
             <AQICard
-              aqi={device?.currentAqi || 0}
-              iaq={device?.currentIaq}
-              temperature={device?.temperature}
-              humidity={device?.humidity}
-              timestamp={device?.lastSeen}
+              aqi={device?.currentAqi || measurements[0]?.aqiCalculated || 0}
+              iaq={device?.currentIaq || measurements[0]?.iaqScore}
+              temperature={device?.temperature || measurements[0]?.temperature}
+              humidity={device?.humidity || measurements[0]?.humidity}
+              pressure={device?.pressure || measurements[0]?.pressureHpa}
+              co2Equiv={measurements[0]?.co2Equiv}
+              pm25={measurements[0]?.pm25Api || measurements[0]?.pm25Estimated}
+              timestamp={device?.lastSeen || measurements[0]?.measuredAt}
               deviceName={device?.name}
+              externalData={measurements[0]?.externalData}
             />
 
             {/* WHO Compliance */}

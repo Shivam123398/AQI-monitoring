@@ -9,9 +9,23 @@ const deviceRoutes: FastifyPluginAsync = async (server) => {
     const devices = await db.device.findMany({
       where: { active: true },
       orderBy: { lastSeen: 'desc' },
+      include: {
+        measurements: {
+          orderBy: { measuredAt: 'desc' },
+          take: 1,
+        },
+      },
     });
 
-    return reply.send({ count: devices.length, data: devices });
+    // Transform to include current AQI
+    const devicesWithAQI = devices.map((device) => ({
+      ...device,
+      currentAqi: device.measurements[0]?.aqiCalculated ?? null,
+      latestMeasurement: device.measurements[0] ?? null,
+      measurements: undefined, // Remove the measurements array from response
+    }));
+
+    return reply.send({ count: devicesWithAQI.length, data: devicesWithAQI });
   });
 
   // Get device details

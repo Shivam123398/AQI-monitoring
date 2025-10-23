@@ -22,7 +22,8 @@ export default function DevicesPage() {
       const list = res.data.data || [];
       setDevices(list);
     } catch (e) {
-      // demo
+      console.error('Failed to load devices:', e);
+      // demo fallback
       setDevices(Array.from({ length: 12 }, (_, i) => ({
         id: `demo-${i+1}`,
         name: `Demo Station ${i+1}`,
