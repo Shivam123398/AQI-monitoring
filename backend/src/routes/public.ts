@@ -1,7 +1,47 @@
 import { FastifyPluginAsync } from 'fastify';
 import { db } from '../lib/db';
+import { events } from '../lib/events';
 
 const publicRoutes: FastifyPluginAsync = async (server) => {
+  // Server-Sent Events for live measurements
+  server.get('/live', async (request, reply) => {
+    reply.header('Content-Type', 'text/event-stream');
+    reply.header('Cache-Control', 'no-cache');
+    reply.header('Connection', 'keep-alive');
+    reply.header('X-Accel-Buffering', 'no');
+
+    // Immediately send a comment to establish the stream
+    reply.raw.write(': connected\n\n');
+
+    const send = (data: unknown) => {
+      try {
+        reply.raw.write(`data: ${JSON.stringify(data)}\n\n`);
+      } catch (e) {
+        // Ignore write errors; connection may be closed
+      }
+    };
+
+    const onNew = (payload: unknown) => send(payload);
+    events.on('measurement:new', onNew);
+
+    // Keep-alive pings
+    const ping = setInterval(() => {
+      try { reply.raw.write(': ping\n\n'); } catch {}
+    }, 30000);
+
+    // Cleanup on close
+    const closeHandler = () => {
+      clearInterval(ping);
+      events.off('measurement:new', onNew);
+    };
+    request.raw.on('close', closeHandler);
+    request.raw.on('end', closeHandler);
+
+    // Keep the connection open by not ending the reply
+    // Fastify will keep this route alive until the client disconnects
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    return;
+  });
   // Public city-wide dashboard data
   server.get('/city/:cityName', async (request, reply) => {
     const { cityName } = request.params as { cityName: string };

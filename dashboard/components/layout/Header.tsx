@@ -17,12 +17,8 @@ export default function Header() {
 					AeroGuard AI
 				</Link>
 				<nav className="flex items-center gap-4">
-					<Link href="/map" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white">Map</Link>
-					<Link href="/devices" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white">Devices</Link>
 					<Link href="/forecast" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white">Forecast</Link>
 					<Link href="/health" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white">Health</Link>
-					<Link href="/alerts" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white">Alerts</Link>
-					<Link href="/reports" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white">Reports</Link>
 					<button
 						aria-label="Toggle theme"
 						onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}

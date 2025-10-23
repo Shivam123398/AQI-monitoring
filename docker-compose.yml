@@ -64,6 +64,8 @@ services:
       - REDIS_URL=redis://redis:6379
       - CORS_ORIGIN=${CORS_ORIGIN}
       - PORT=3000
+    ports: 
+      - "4000:3000"
     networks:
       - aqi_net
 

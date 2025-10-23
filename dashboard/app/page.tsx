@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { AQICard } from '@/components/cards/AQICard';
 import { apiClient } from '@/lib/api';
+import { openLiveStream, type LiveMeasurement } from '@/lib/live';
 import { MapPin, TrendingUp, Activity, AlertTriangle, RefreshCw, Play } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import toast from 'react-hot-toast';
@@ -27,6 +28,42 @@ export default function HomePage() {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Live updates via SSE
+  useEffect(() => {
+    const es = openLiveStream();
+    es.onmessage = (ev) => {
+      try {
+        const data: LiveMeasurement = JSON.parse(ev.data);
+        setDevices((prev) => {
+          const idx = prev.findIndex((d) => d.id === data.deviceId);
+          if (idx === -1) return prev;
+          const next = [...prev];
+          next[idx] = {
+            ...next[idx],
+            currentAqi: data.aqiCalculated ?? next[idx].currentAqi,
+            currentIaq: data.iaqScore ?? next[idx].currentIaq,
+            temperature: data.temperature ?? next[idx].temperature,
+            humidity: data.humidity ?? next[idx].humidity,
+            lastSeen: data.measuredAt ?? next[idx].lastSeen,
+          };
+          return next;
+        });
+
+        if (selectedDeviceId && data.deviceId === selectedDeviceId) {
+          setSeries((prev) => {
+            const appended = [...prev, { measuredAt: data.measuredAt, aqiCalculated: data.aqiCalculated }];
+            // keep last 500 points
+            return appended.slice(-500);
+          });
+        }
+      } catch {}
+    };
+    es.onerror = () => {
+      // Allow reconnection by closing; browser will reconnect on next effect if remounted
+    };
+    return () => es.close();
+  }, [selectedDeviceId]);
 
   useEffect(() => {
     const d = devices.find((x) => x.id === selectedDeviceId) || null;

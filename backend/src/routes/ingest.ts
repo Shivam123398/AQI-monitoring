@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { db } from '../lib/db';
 import { verifyHMAC } from '../lib/hmac';
 import { calculateAQI, getAQICategory } from '../lib/aqi';
+import { events } from '../lib/events';
 import { fetchOpenWeatherAirQuality } from '../lib/external-api';
 
 const ingestSchema = z.object({
@@ -118,12 +119,30 @@ const ingestRoutes: FastifyPluginAsync = async (server) => {
         },
       });
 
-      return reply.code(201).send({
+      const responsePayload = {
         success: true,
         measurement_id: measurement.id,
         aqi: aqiCalculated,
         category: aqiCategory,
-      });
+      };
+
+      // Emit live update event (non-blocking)
+      try {
+        events.emit('measurement:new', {
+          deviceId: device.id,
+          deviceName: device.name,
+          measuredAt: measurement.measuredAt.toISOString(),
+          aqiCalculated: measurement.aqiCalculated ?? null,
+          iaqScore: measurement.iaqScore ?? null,
+          temperature: measurement.temperature ?? null,
+          humidity: measurement.humidity ?? null,
+          pressureHpa: measurement.pressureHpa ?? null,
+        });
+      } catch (e) {
+        server.log.warn({ err: e }, 'Failed to emit live measurement event');
+      }
+
+      return reply.code(201).send(responsePayload);
 
     } catch (error: any) {
       server.log.error(error);
